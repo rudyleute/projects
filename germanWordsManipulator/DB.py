@@ -13,8 +13,16 @@ class DB:
 
     def execute(self, query):
         cur = self.__connection.cursor()
-        result = cur.execute(query)
-        cur.close()
+        cur.execute(query)
+        try:
+            result = cur.fetchall()
+        except psycopg2.ProgrammingError:
+            if cur.rowcount == 0:
+                raise psycopg2.ProgrammingError("The query has not been processed")
+            self.__connection.commit()
+            result = None
+        finally:
+            cur.close()
 
         return result
 
