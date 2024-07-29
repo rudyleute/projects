@@ -1,4 +1,5 @@
 import spacy
+from spacy.parts_of_speech import IDS
 from nltk.tokenize import sent_tokenize
 
 
@@ -65,3 +66,7 @@ class NLP:
             data[key] = unseen
 
         return data
+
+    @staticmethod
+    def getSpeechPartsMapping():
+        return {spacy.explain(pos): pos for pos in IDS if spacy.explain(pos) is not None}

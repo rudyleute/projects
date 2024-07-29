@@ -1,6 +1,6 @@
-from Table import Table
+from .Tables import Tables
 
 
-class Conjugation(Table):
+class Conjugations(Tables):
     def __init__(self, db):
         super().__init__(db, "conjugations")

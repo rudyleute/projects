@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 
 
-class Table(ABC):
+class Tables(ABC):
     def __init__(self, db, tableName):
         self._db = db
         self._tableName = tableName
