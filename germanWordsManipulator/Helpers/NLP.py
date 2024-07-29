@@ -51,8 +51,17 @@ class NLP:
         chunks = self.__splitText(text, self.__model.max_length)
         data = dict()
 
-        # TODO remove duplicates
         for chunk in chunks:
             data |= NLP.__parseTokens(self.__model(chunk))
+
+        # TODO think of a better way to deduplicate data
+        # TODO generally it makes sense to remove all the entries with the same pair (lemma, partOfSpeech)
+        for key in data:
+            unseen = list()
+            for entry in data[key]:
+                if entry not in unseen:
+                    unseen.append(entry)
+
+            data[key] = unseen
 
         return data
