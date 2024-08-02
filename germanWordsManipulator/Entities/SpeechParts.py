@@ -15,3 +15,15 @@ class SpeechParts(Tables):
                 "speech_part_name": key
             }))
         self.add(insert)
+
+    def get(self, param=None):
+        result = super().get(param)
+        data = dict()
+
+        for oneRow in result:
+            data[oneRow["speech_part_model_name"]] = dict({
+                "id": oneRow["speech_part_id"],
+                "name": oneRow["speech_part_name"]
+            })
+
+        return data

@@ -1,3 +1,4 @@
+from Errors.Errors import ResourceNotFoundError
 import requests
 
 
@@ -10,7 +11,12 @@ class Corpus:
         if result.ok:
             return result.json()
 
-        raise Exception(f"{url} finished with the code {result.status_code}: {result.reason}")
+        errorMsg = f"{url} finished with the code {result.status_code}: {result.reason}"
+        if result.status_code == 404:
+            raise ResourceNotFoundError(errorMsg)
+
+        raise Exception(errorMsg)
+
 
     @staticmethod
     def getCorpora():
@@ -55,6 +61,8 @@ class Corpus:
         freq = 0
         for name in corporaNames:
             url = f"{Corpus.__apiAddress}/words/{name}/word/{word}"
-            freq += (Corpus.__request(url))["freq"]
-
+            try:
+                freq += (Corpus.__request(url))["freq"]
+            except ResourceNotFoundError:
+                pass
         return freq

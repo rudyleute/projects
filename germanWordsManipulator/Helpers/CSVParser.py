@@ -6,11 +6,19 @@ class CSVParser:
         pass
 
     @staticmethod
-    def readFile(filename, hasHeader=True):
+    def readFile(filename, hasHeader=True, keyField=None, keyLower=False):
         with open(filename, newline='') as file:
-            if hasHeader:
+            if not hasHeader:
+                return list(csv.reader(file))
+
+            if keyField is None:
                 return list(csv.DictReader(file))
-            return list(csv.reader(file))
+
+            reader = list(csv.DictReader(file))
+            if keyLower:
+                return {row[keyField].lower(): row for row in reader}
+            else:
+                return {row[keyField]: row for row in reader}
 
     @staticmethod
     def editFile(filename, data, toAppend=True, hasHeader=None):

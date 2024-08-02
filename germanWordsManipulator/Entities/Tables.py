@@ -6,17 +6,17 @@ class Tables(ABC):
         self._db = db
         self._tableName = tableName
 
-    def get(self, params=None):
+    def get(self, params=None, isDict=True):
         data = dict({
             "from": self._tableName,
         })
 
         if params is not None:
-            for key in ["limit", "where", "sort"]:
+            for key in ["limit", "where", "sort", "select"]:
                 if key in params:
                     data[key] = params[key]
 
-        return self._db.select(data)
+        return self._db.select(data, isDict=isDict)
 
     def add(self, wordsData):
         data = dict({

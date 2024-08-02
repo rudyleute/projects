@@ -1,4 +1,7 @@
 import psycopg2
+from psycopg2.extras import RealDictCursor
+from psycopg2 import errors
+from psycopg2.errorcodes import UNIQUE_VIOLATION
 
 
 class DB:
@@ -24,16 +27,27 @@ class DB:
 
         return str.join(delim, prepData)
 
-    def __execute(self, query):
-        cur = self.__connection.cursor()
-        cur.execute(query)
+    def __execute(self, query, isDict=True):
+        if isDict:
+            cur = self.__connection.cursor(cursor_factory=RealDictCursor)
+        else:
+            cur = self.__connection.cursor()
+
+        result = None
+
         try:
+            cur.execute(query)
             result = cur.fetchall()
         except psycopg2.ProgrammingError:
             if cur.rowcount == 0:
+                self.__connection.rollback()
                 raise psycopg2.ProgrammingError("The query has not been processed")
+
             self.__connection.commit()
-            result = None
+        # TODO this does not catch unique constraint violation error
+        except errors.lookup(UNIQUE_VIOLATION):
+            self.__connection.rollback()
+            pass
         finally:
             cur.close()
 
@@ -52,7 +66,7 @@ class DB:
 
         return str.join(' AND ', whereClause)
 
-    def select(self, queryParams):
+    def select(self, queryParams, isDict=True):
         whereClause = None
         sort = None
         limit = None
@@ -74,7 +88,7 @@ class DB:
                  f"{f'SORT BY {sort}' if sort is not None else str()} "
                  f"{f'LIMIT {limit}' if limit is not None else str()}")
 
-        return self.__execute(query)
+        return self.__execute(query, isDict=isDict)
 
     def insert(self, data):
         for row in data["insert"]:
