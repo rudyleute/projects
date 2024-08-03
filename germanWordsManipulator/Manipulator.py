@@ -25,6 +25,19 @@ class Manipulator:
 
             return dataCopy
 
+    def processTextFile(self, filename, delim='('):
+        with open(filename, 'r') as file:
+            """
+            1. Separate into languages
+            2. Separate into categories like "phrases" and others
+            3. Find the main word
+            4. Find a lemma
+            """
+
+            raise NotImplemented
+
+
+
     def processTeacherAi(self):
         result = CSVParser.readFile("active_vocabulary.csv", keyField="word", keyLower=True)
         speechParts = self.__speechPart.get()
@@ -40,7 +53,7 @@ class Manipulator:
             result.pop(key, None)
 
         # Get all the information about the words (POS, lemma, article, etc)
-        processed = self.__nlp.processWords(list(result.keys()))[:5]
+        processed = self.__nlp.processWords(list(result.keys()))
 
         step = 10
         for i in range(0, len(processed), step):
@@ -55,9 +68,10 @@ class Manipulator:
                 # but can occur in a processed phrase)
                 try:
                     data[word["lemma"]] = dict({
-                        "word_name": word["lemma"].lower(),
+                        "word_lemma": word["lemma"].lower(),
+                        "word_data": word["lemma"].lower(),
                         "word_translation": result[word["word"]]["translation"],
-                        "word_fk_speech_part_id": speechParts[word["speechPart"]]["id"],
+                        "word_fk_speech_part_id": speechParts[word["speechPart"]]["uuid"],
                         "word_is_learn_taken": True,
                         **({"word_article": word["article"]} if word["speechPart"].lower() == "noun" else {})
                     })
