@@ -1,9 +1,9 @@
 from abc import ABC, abstractmethod
+from State import State
 
 
 class Tables(ABC):
-    def __init__(self, db, tableName):
-        self._db = db
+    def __init__(self, tableName):
         self._tableName = tableName
 
     def get(self, params=None, isDict=True):
@@ -16,7 +16,7 @@ class Tables(ABC):
                 if key in params:
                     data[key] = params[key]
 
-        return self._db.select(data, isDict=isDict)
+        return State.getConnection().select(data, isDict=isDict)
 
     def add(self, wordsData):
         data = dict({
@@ -24,4 +24,4 @@ class Tables(ABC):
             "insert": wordsData
         })
 
-        self._db.insert(data)
+        State.getConnection().insert(data)

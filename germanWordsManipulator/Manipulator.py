@@ -1,16 +1,11 @@
 from Helpers.CSVParser import CSVParser
 from Helpers.Corpora import Corpus
+from State import State
 import spacy
 from concurrent.futures import ThreadPoolExecutor
 
 
 class Manipulator:
-    def __init__(self, db, nlp, speechPart, words):
-        self.__db = db
-        self.__nlp = nlp
-        self.__speechPart = speechPart
-        self.__words = words
-
     @staticmethod
     def __parallelRequests(data):
         dataCopy = data.copy()
@@ -25,7 +20,8 @@ class Manipulator:
 
             return dataCopy
 
-    def processTextFile(self, filename, delim='('):
+    @staticmethod
+    def processTextFile(filename, delim='('):
         with open(filename, 'r') as file:
             """
             1. Separate into languages
@@ -36,11 +32,10 @@ class Manipulator:
 
             raise NotImplemented
 
-
-
-    def processTeacherAi(self):
+    @staticmethod
+    def processTeacherAi():
         result = CSVParser.readFile("active_vocabulary.csv", keyField="word", keyLower=True)
-        speechParts = self.__speechPart.get()
+        speechParts = State.getEntity("speechParts").get()
 
         """
         Remove the already existing duplicates (lemma form) in order to avoid overhead of retrieving a lot of info (especially API)
@@ -48,12 +43,12 @@ class Manipulator:
         
         The date can be an alternative marker for not seen words, but it is not 100% correct, which is important in this case
         """
-        existingWords = {row[0].lower() for row in self.__words.getWordsList()}
+        existingWords = {row[0].lower() for row in State.getEntity("words").getWordsList()}
         for key in existingWords:
             result.pop(key, None)
 
         # Get all the information about the words (POS, lemma, article, etc)
-        processed = self.__nlp.processWords(list(result.keys()))
+        processed = State.getNlp("german").processWords(list(result.keys()))
 
         step = 10
         for i in range(0, len(processed), step):
@@ -90,4 +85,4 @@ class Manipulator:
 
                 data[key]["word_frequency"] = value["result"]
 
-            self.__words.add(list(data.values()))
+            State.getEntity("words").add(list(data.values()))

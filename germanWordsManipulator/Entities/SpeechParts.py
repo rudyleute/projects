@@ -3,8 +3,8 @@ from Helpers.NLP import NLP
 
 
 class SpeechParts(Tables):
-    def __init__(self, db):
-        super().__init__(db, "speech_part")
+    def __init__(self):
+        super().__init__("speech_part")
 
     def save(self):
         speechParts = NLP.getSpeechPartsMapping()
@@ -16,13 +16,13 @@ class SpeechParts(Tables):
             }))
         self.add(insert)
 
-    def get(self, param=None):
-        result = super().get(param)
+    def get(self, params=None, isDict=True):
+        result = super().get(params, isDict=isDict)
         data = dict()
 
         for oneRow in result:
             data[oneRow["speech_part_model_name"]] = dict({
-                "id": oneRow["speech_part_id"],
+                "uuid": oneRow["speech_part_id"],
                 "name": oneRow["speech_part_name"]
             })
 
