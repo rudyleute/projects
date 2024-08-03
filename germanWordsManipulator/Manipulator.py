@@ -1,6 +1,7 @@
 from Helpers.CSVParser import CSVParser
 from Helpers.Corpora import Corpus
 import spacy
+from concurrent.futures import ThreadPoolExecutor
 
 
 class Manipulator:
@@ -9,6 +10,20 @@ class Manipulator:
         self.__nlp = nlp
         self.__speechPart = speechPart
         self.__words = words
+
+    @staticmethod
+    def __parallelRequests(data):
+        dataCopy = data.copy()
+        with ThreadPoolExecutor() as executor:
+            futures = []
+            for key, task in dataCopy.items():
+                futures.append(executor.submit(task["functor"], *task["params"]))
+
+            results = [future.result() for future in futures]
+            for key, result in zip(dataCopy.keys(), results):
+                dataCopy[key]["result"] = result
+
+            return dataCopy
 
     def processTeacherAi(self):
         result = CSVParser.readFile("active_vocabulary.csv", keyField="word", keyLower=True)
@@ -29,7 +44,7 @@ class Manipulator:
 
         step = 10
         for i in range(0, len(processed), step):
-            data = []
+            data, frequencies = {}, {}
             # Save data in batches in order to avoid losing the whole progress in case of an error
             for j in range(i, min(i + step, len(processed)), 1):
                 word = processed[j]
@@ -39,20 +54,26 @@ class Manipulator:
                 # Word["word"] does not have to be in result (difference with existingWords,
                 # but can occur in a processed phrase)
                 try:
-                    wordData = dict({
+                    data[word["lemma"]] = dict({
                         "word_name": word["lemma"].lower(),
                         "word_translation": result[word["word"]]["translation"],
                         "word_fk_speech_part_id": speechParts[word["speechPart"]]["id"],
                         "word_is_learn_taken": True,
-                        "word_frequency": Corpus.getWordFrequency('deu', word["lemma"]),
                         **({"word_article": word["article"]} if word["speechPart"].lower() == "noun" else {})
+                    })
+
+                    frequencies[word["lemma"]] = dict({
+                        "functor": Corpus.getWordFrequency,
+                        "params": ['deu', word["lemma"]],
                     })
                 except KeyError:
                     continue
 
-                if wordData["word_frequency"] == 0:
+            for key, value in Manipulator.__parallelRequests(frequencies).items():
+                if value["result"] == 0:
+                    data.pop(key, None)
                     continue
 
-                data.append(wordData)
+                data[key]["word_frequency"] = value["result"]
 
-            self.__words.add(data)
+            self.__words.add(list(data.values()))
