@@ -33,7 +33,7 @@ class DB:
         else:
             cur = self.__connection.cursor()
 
-        result = None
+        result = {}
 
         try:
             cur.execute(query)
@@ -63,6 +63,12 @@ class DB:
                     subclauses.append(f"{info[0]} {info[1]} {DB.__listToQueryString([info[1]])}")
 
                 whereClause.append(f"({str.join(' OR ', subclauses)})")
+            else:
+                if clause[2] is None:
+                    clause = list(clause)[:2] + ['NULL']
+                elif isinstance(clause[2], str):
+                    clause = list(clause)[:2] + [f"'{clause[2]}'"]
+                whereClause.append(' '.join(list(clause)))
 
         return str.join(' AND ', whereClause)
 
@@ -84,7 +90,7 @@ class DB:
             limit = queryParams["limit"]
 
         query = (f"SELECT {select} FROM {queryParams['from']} "
-                 f"WHERE {whereClause if whereClause is not None else '1=1'} "
+                 f"WHERE {whereClause or '1=1'} "
                  f"{f'SORT BY {sort}' if sort is not None else str()} "
                  f"{f'LIMIT {limit}' if limit is not None else str()}")
 

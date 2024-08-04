@@ -27,3 +27,11 @@ class SpeechParts(Tables):
             })
 
         return data
+
+    def getPhrasesCode(self):
+        return super().get({
+            "select": ["speech_part_model_name"],
+            "where": [
+                ("speech_part_name", "=", "phrase")
+            ]
+        }, False)[0][0]

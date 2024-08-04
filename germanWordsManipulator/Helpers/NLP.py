@@ -6,18 +6,34 @@ from nltk.tokenize import sent_tokenize
 
 class NLP:
     __langModelMap = dict({
-        "german": "de_dep_news_trf"
+        "german": "de_dep_news_trf",
+        "english": "en_core_web_trf"
     })
-    __genderArticleMap = dict({
+    __genderArticleMap = defaultdict(str, {
         "Masc": "der",
         "Fem": "die",
         "Neut": "das"
     })
+    __mainSpeechParts = {'VERB', 'NOUN', 'ADJ', 'AUX', 'ADV'}
 
     def __init__(self, lang):
         lang = lang.lower()
         self.__model = spacy.load(NLP.__langModelMap[lang])
         self.__lang = lang
+
+    def isPhrase(self, text):
+        counter, base = 0, None
+
+        processed = self.processWords(text)
+        base = processed[0]
+        # Since there will not be a lot of words to iterate over, the overhead is not noticeable
+        for elem in processed:
+            if elem["speechPart"] in NLP.__mainSpeechParts:
+                counter += 1
+                base = elem
+
+        isPhrase = counter >= 2 or (counter == 0 and len(text) >= 2)
+        return isPhrase, base if not isPhrase else None
 
     @staticmethod
     def __parseTokens(docs):
@@ -39,11 +55,11 @@ class NLP:
                     if isLower and token.pos_.lower() != "noun":
                         text = text[0].upper() + text[1:]
                         reprocess.add(text)
+                        continue
                     elif not isLower:
                         text = text[0].lower() + text[1:]
                         reprocess.add(text)
-
-                    continue
+                        continue
 
                 words.append(dict({
                     "word": token.text,

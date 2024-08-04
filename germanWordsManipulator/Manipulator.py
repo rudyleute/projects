@@ -1,41 +1,80 @@
 from Helpers.CSVParser import CSVParser
-from Helpers.Corpora import Corpus
+from Helpers.Corpus import Corpus
 from State import State
-import spacy
-from concurrent.futures import ThreadPoolExecutor
+from lingua import Language, LanguageDetectorBuilder
+import langcodes
+import re
+from collections import defaultdict
 
 
 class Manipulator:
-    @staticmethod
-    def __parallelRequests(data):
-        dataCopy = data.copy()
-        with ThreadPoolExecutor() as executor:
-            futures = []
-            for key, task in dataCopy.items():
-                futures.append(executor.submit(task["functor"], *task["params"]))
-
-            results = [future.result() for future in futures]
-            for key, result in zip(dataCopy.keys(), results):
-                dataCopy[key]["result"] = result
-
-            return dataCopy
+    __langDetector = LanguageDetectorBuilder.from_languages(*[Language.ENGLISH, Language.GERMAN]).build()
+    __phrases = "phrases"
+    __words = "words"
 
     @staticmethod
-    def processTextFile(filename, delim='('):
-        with open(filename, 'r') as file:
-            """
-            1. Separate into languages
-            2. Separate into categories like "phrases" and others
-            3. Find the main word
-            4. Find a lemma
-            """
+    def __detectLanguage(text):
+        language = Manipulator.__langDetector.detect_language_of(text)
+        return langcodes.get(language.iso_code_639_1.name.lower()).display_name().lower()
 
-            raise NotImplemented
+    @staticmethod
+    def processTextFile(filename):
+        words = defaultdict(dict)
+        existingWords = {row[0].lower() for row in State.getEntity("words").getWordsList(dict({
+            "where": [
+                ("word_lemma", "is not", None)
+            ]
+        }))}
+        emptyTranslations = {row[0].lower() for row in State.getEntity("words").getTranslationsList(dict({
+            "where": [
+                ("word_lemma", "is", None)
+            ]
+        }))}
+
+        with open(filename, 'r', encoding="utf-8-sig") as file:
+            for line in file:
+                line = re.split(r"\(|\)", line.strip())
+                line = [part.strip() for part in line if part.strip()]
+                if len(line) == 0:
+                    continue
+
+                language = Manipulator.__detectLanguage(line[0])
+                nlp = State.getNlp(language)
+
+                isPhrase, base = nlp.isPhrase(line[0].split())
+                base = base or {}
+
+                base["word"] = line[0]
+                if isPhrase:
+                    base["lemma"] = line[0]
+
+                if (language == State.getCurrentLang() and base["word"] in existingWords) or\
+                    (language == State.getBaseLang() and base["word"] in emptyTranslations):
+                    continue
+
+                if len(line) == 2:
+                    base["translation"] = line[1]
+
+                words[language].setdefault(Manipulator.__phrases if isPhrase else Manipulator.__words, []).append(base)
+
+        mapping = {
+            State.getCurrentLang(): {
+                Manipulator.__words: State.getEntity(Manipulator.__words).add,
+                Manipulator.__phrases: State.getEntity(Manipulator.__phrases).add
+            },
+            State.getBaseLang(): {
+                Manipulator.__words: State.getEntity(Manipulator.__words).addBaseLangData,
+                Manipulator.__phrases: State.getEntity(Manipulator.__phrases).addBaseLangData
+            }
+        }
+
+        for lang in words:
+            for key in words[lang]:
+                mapping[lang][key](words[lang][key])
 
     @staticmethod
     def processTeacherAi():
         result = CSVParser.readFile("active_vocabulary.csv", keyField="word", keyLower=True)
-        speechParts = State.getEntity("speechParts").get()
 
         """
         Remove the already existing duplicates (lemma form) in order to avoid overhead of retrieving a lot of info (especially API)
@@ -49,40 +88,10 @@ class Manipulator:
 
         # Get all the information about the words (POS, lemma, article, etc)
         processed = State.getNlp("german").processWords(list(result.keys()))
+        for elem in processed:
+            try:
+                elem["translation"] = result[elem["word"].lower()]["translation"]
+            except KeyError:
+                continue
 
-        step = 10
-        for i in range(0, len(processed), step):
-            data, frequencies = {}, {}
-            # Save data in batches in order to avoid losing the whole progress in case of an error
-            for j in range(i, min(i + step, len(processed)), 1):
-                word = processed[j]
-
-                # TODO figure out how to process phrases from the aforementioned file (can contain 2+ words as it
-                #  turns out)
-                # Word["word"] does not have to be in result (difference with existingWords,
-                # but can occur in a processed phrase)
-                try:
-                    data[word["lemma"]] = dict({
-                        "word_lemma": word["lemma"].lower(),
-                        "word_data": word["lemma"].lower(),
-                        "word_translation": result[word["word"]]["translation"],
-                        "word_fk_speech_part_id": speechParts[word["speechPart"]]["uuid"],
-                        "word_is_learn_taken": True,
-                        **({"word_article": word["article"]} if word["speechPart"].lower() == "noun" else {})
-                    })
-
-                    frequencies[word["lemma"]] = dict({
-                        "functor": Corpus.getWordFrequency,
-                        "params": ['deu', word["lemma"]],
-                    })
-                except KeyError:
-                    continue
-
-            for key, value in Manipulator.__parallelRequests(frequencies).items():
-                if value["result"] == 0:
-                    data.pop(key, None)
-                    continue
-
-                data[key]["word_frequency"] = value["result"]
-
-            State.getEntity("words").add(list(data.values()))
+        State.getEntity("words").add(processed, True)
