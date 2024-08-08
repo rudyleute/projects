@@ -34,7 +34,7 @@ class State(ABC):
 
     @staticmethod
     def getBaseNlp():
-        return State.getNlp("english")
+        return State.getNlp(State.getBaseLang())
 
     @staticmethod
     def getNlp(language):

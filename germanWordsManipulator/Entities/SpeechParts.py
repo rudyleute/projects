@@ -28,10 +28,24 @@ class SpeechParts(Tables):
 
         return data
 
-    def getPhrasesCode(self):
+    def getCode(self, name):
         return super().get({
             "select": ["speech_part_model_name"],
             "where": [
-                ("speech_part_name", "=", "phrase")
+                ("speech_part_name", "=", name)
             ]
         }, False)[0][0]
+
+    def getUuid(self, name):
+        return super().get({
+            "select": ["speech_part_id"],
+            "where": [
+                ("speech_part_name", "=", name)
+            ]
+        }, False)[0][0]
+
+    def getPhrasesCode(self):
+        return self.getCode("phrase")
+
+    def getPhrasesUuid(self):
+        return self.getUuid("phrase")

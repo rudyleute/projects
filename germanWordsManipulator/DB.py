@@ -68,6 +68,8 @@ class DB:
                     clause = list(clause)[:2] + ['NULL']
                 elif isinstance(clause[2], str):
                     clause = list(clause)[:2] + [f"'{clause[2]}'"]
+                else:
+                    clause = list(clause)[:2] + [str(clause[2])]
                 whereClause.append(' '.join(list(clause)))
 
         return str.join(' AND ', whereClause)

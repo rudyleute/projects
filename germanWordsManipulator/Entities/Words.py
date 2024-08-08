@@ -41,7 +41,7 @@ class Words(Tables):
 
             super().add(list(data.values()))
 
-    def add(self, wordsData, isTaken=False):
+    def add(self, wordsData, isLearnTaken=False, isArticleTaken=False):
         speechParts = State.getEntity("speechParts").get()
         step = 10
         for i in range(0, len(wordsData), step):
@@ -57,7 +57,8 @@ class Words(Tables):
                     "word_data": word["word"],
                     **({"word_translation": word["translation"]} if "translation" in word else {}),
                     "word_fk_speech_part_id": speechParts[word["speechPart"]]["uuid"],
-                    "word_is_learn_taken": isTaken,
+                    "word_is_learn_taken": isLearnTaken,
+                    "word_is_article_taken": isArticleTaken,
                     **({"word_article": word["article"]} if word["speechPart"].lower() == "noun" else {})
                 })
 
@@ -75,4 +76,33 @@ class Words(Tables):
 
             super().add(list(data.values()))
 
+    def getWordsToLearn(self, quantity=20):
+        params = dict({
+            "limit": quantity,
+            "where": [
+                ("word_is_learn_taken", "=", False),
+                ("word_fk_speech_part_id", "!=", State.getEntity("speechParts").getPhrasesUuid()),
+                ("word_lemma", "is not", None),
+
+            ],
+            "sort": [
+                "word_frequency DESC"
+            ]
+        })
+
+        return super().get(params=params, isDict=True)
+
+    def getPhrasesToLearn(self, quantity=20):
+        params = dict({
+            "limit": quantity,
+            "where": [
+                ("word_is_learn_taken", "=", "False"),
+                ("word_fk_speech_part_id", "=", State.getEntity("speechParts").getPhrasesUuid())
+            ],
+            "sort": [
+                "'word_frequency' DESC"
+            ]
+        })
+
+        return super().get(params=params, isDict=True)
 

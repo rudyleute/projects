@@ -3,7 +3,8 @@ from Entities.Words import Words
 from Entities.SpeechParts import SpeechParts
 from Entities.Phrases import Phrases
 from Helpers.NLP import NLP
-from Manipulator import Manipulator
+from Helpers.Processor import Processor
+from Helpers.Learner import Learner
 from State import State
 import os
 
@@ -24,9 +25,8 @@ def main():
     }), "german")
     State.addEntity("phrases", Phrases())
 
-    m = Manipulator()
-    m.processTeacherAi()
-    m.processTextFile("/home/otto/Desktop/GermanWordsToLearn.txt")
+    Processor.parseArticlesForNouns("Articles for nouns.txt")
+
 
 
 if __name__ == "__main__":

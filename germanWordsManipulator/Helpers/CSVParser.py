@@ -6,15 +6,15 @@ class CSVParser:
         pass
 
     @staticmethod
-    def readFile(filename, hasHeader=True, keyField=None, keyLower=False):
+    def readFile(filename, delim=',', hasHeader=True, keyField=None, keyLower=False):
         with open(filename, newline='') as file:
             if not hasHeader:
-                return list(csv.reader(file))
+                return list(csv.reader(file, delimiter=delim))
 
             if keyField is None:
-                return list(csv.DictReader(file))
+                return list(csv.DictReader(file, delimiter=delim))
 
-            reader = list(csv.DictReader(file))
+            reader = list(csv.DictReader(file, delimiter=delim))
             if keyLower:
                 return {row[keyField].lower(): row for row in reader}
             else:
