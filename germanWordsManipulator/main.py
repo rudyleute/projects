@@ -25,8 +25,9 @@ def main():
     }), "german")
     State.addEntity("phrases", Phrases())
 
-    Processor.parseArticlesForNouns("Articles for nouns.txt")
-
+    Processor.exportArticles(["word_lemma", "word_article", "word_translation"])
+    # Processor.processTextFile("/home/otto/Desktop/UsefulWords.txt")
+    # Processor.processTextFile("/home/otto/Desktop/GermanWordsToLearn.txt")
 
 
 if __name__ == "__main__":

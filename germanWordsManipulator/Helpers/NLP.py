@@ -82,6 +82,7 @@ class NLP:
         result = list()
         reprocess = set()
 
+        # TODO use Leipzig corpora to generate a sentence for a WORD and then feed the sentence to the algorithm
         for curPos in range(0, len(words), batchSize):
             docs = list(self.__model.pipe(words[curPos: curPos + batchSize]))
             batchResult, toReprocess = NLP.__parseTokens(docs)

@@ -26,7 +26,8 @@ class Processor:
         }))}
         emptyTranslations = {row[0].lower() for row in State.getEntity("words").getTranslationsList(dict({
             "where": [
-                ("word_lemma", "is", None)
+                ("word_lemma", "is", None),
+                ("word_translation", "is not", None)
             ]
         }))}
 
@@ -47,8 +48,8 @@ class Processor:
                 if isPhrase:
                     base["lemma"] = line[0]
 
-                if (language == State.getCurrentLang() and base["word"] in existingWords) or \
-                        (language == State.getBaseLang() and base["word"] in emptyTranslations):
+                if (language == State.getCurrentLang() and base["word"].lower() in existingWords) or \
+                        (language == State.getBaseLang() and base["word"].lower() in emptyTranslations):
                     continue
 
                 if len(line) == 2:
@@ -115,7 +116,7 @@ class Processor:
         return '.'.join(split)
 
     @staticmethod
-    def parseArticlesForNouns(filename, delim='\t'):
+    def parseArticles(filename, delim='\t'):
         # add headers in order to use the csv parser effectively
         with open(filename, 'r') as file:
             lines = file.readlines()[2:]
@@ -144,3 +145,9 @@ class Processor:
             wordData["translation"] = data[wordData["word"]]["translation"]
 
         State.getEntity("words").add(processed, isArticleTaken=True)
+
+    @staticmethod
+    def exportArticles(order, filename="articles"):
+        articles = State.getEntity("words").getArticles(order)
+
+        CSVParser.editFile(f"{filename}.csv", articles, hasHeader=True)

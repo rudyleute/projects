@@ -36,7 +36,7 @@ class SpeechParts(Tables):
             ]
         }, False)[0][0]
 
-    def getUuid(self, name):
+    def getUUID(self, name):
         return super().get({
             "select": ["speech_part_id"],
             "where": [
@@ -48,4 +48,4 @@ class SpeechParts(Tables):
         return self.getCode("phrase")
 
     def getPhrasesUuid(self):
-        return self.getUuid("phrase")
+        return self.getUUID("phrase")

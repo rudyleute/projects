@@ -21,7 +21,7 @@ class CSVParser:
                 return {row[keyField]: row for row in reader}
 
     @staticmethod
-    def editFile(filename, data, toAppend=True, hasHeader=None):
+    def editFile(filename, data, toAppend=False, hasHeader=None):
         with open(filename, 'w' if not toAppend else 'a', newline='') as file:
             if hasHeader:
                 writer = csv.DictWriter(file, fieldnames=list(data[0].keys()))

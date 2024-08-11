@@ -106,3 +106,19 @@ class Words(Tables):
 
         return super().get(params=params, isDict=True)
 
+    def getArticles(self, select=None, nonTaken=True):
+        params = dict({
+            **({"select": select} if isinstance(select, list) else {}),
+            "where": [
+                ("word_is_article_taken", "=", f"{'True' if not nonTaken else 'False'}"),
+                ("word_fk_speech_part_id", "=", State.getEntity("speechParts").getUUID('noun')),
+                ("word_lemma", "is not", None),
+                ("word_article", "is not", None),
+                ("word_translation", "is not", None)
+            ]
+        })
+
+        for row in (result := super().get(params=params)):
+            row["word_lemma"] = row["word_lemma"].title()
+
+        return result
