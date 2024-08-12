@@ -1,9 +1,12 @@
+import random
+
 from Errors.Errors import ResourceNotFoundError
 import requests
 
 
 class Corpus:
     __apiAddress = "https://api.wortschatz-leipzig.de/ws"
+    __langCorpora = dict()
 
     @staticmethod
     def __request(url, reqType="get"):
@@ -17,7 +20,6 @@ class Corpus:
 
         raise Exception(errorMsg)
 
-
     @staticmethod
     def getCorpora():
         url = f"{Corpus.__apiAddress}/corpora"
@@ -27,6 +29,9 @@ class Corpus:
     def getLanguageCorpora(code):
         if len(code) != 3:
             raise Exception("Incorrect language code")
+
+        if code in Corpus.__langCorpora:
+            return Corpus.__langCorpora[code]
 
         corpora = Corpus.getCorpora()
         corporaData, corpusNameMap = dict(), dict()
@@ -51,7 +56,9 @@ class Corpus:
             return dict()
 
         # We may want to adjust the contribution to the frequency based on the site of the sentences' pool
-        return {corpusNameMap[noPostfix]: corporaData[noPostfix] for noPostfix in corporaData}
+        # TODO sort the data by the number of sentences in the corpus
+        Corpus.__langCorpora[code] = {corpusNameMap[noPostfix]: corporaData[noPostfix] for noPostfix in corporaData}
+        return Corpus.__langCorpora[code]
 
     @staticmethod
     def getWordFrequency(code, word):
@@ -66,3 +73,22 @@ class Corpus:
             except ResourceNotFoundError:
                 pass
         return freq
+
+    @staticmethod
+    def getExampleSentence(code, word):
+        corporaData = Corpus.getLanguageCorpora(code)
+        corporaNames = list(corporaData.keys())
+
+        for w in [word, word.lower() if word[0].isupper() else word.upper()]:
+            for name in corporaNames:
+                url = f"{Corpus.__apiAddress}/sentences/{name}/sentences/{w}"
+                try:
+                    result = (Corpus.__request(url))
+                    if result["count"] > 0:
+                        for sentence in result["sentences"]:
+                            if len(sentence["sentence"]) >= len(w):
+                                return sentence["sentence"], w
+                except ResourceNotFoundError:
+                    pass
+
+        return word, word

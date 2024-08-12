@@ -6,19 +6,19 @@ class State(ABC):
     _nlps = dict()
     _entities = dict()
     _baseLang = None
-    _curLang = None
+    _targetLang = None
 
     @staticmethod
-    def init(connection, nlpsData, entitiesData, curLang, baseLang="english"):
+    def init(connection, nlpsData, entitiesData, targetLang, baseLang="english"):
         State.setConnection(connection)
         State.addNlps(nlpsData)
         State.addEntities(entitiesData)
-        State._curLang = curLang
+        State._targetLang = targetLang
         State._baseLang = baseLang
 
     @staticmethod
-    def getCurrentLang():
-        return State._curLang
+    def getTargetLang():
+        return State._targetLang
 
     @staticmethod
     def getBaseLang():

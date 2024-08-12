@@ -15,60 +15,46 @@ class NLP:
         "Neut": "das"
     })
     __mainSpeechParts = {'VERB', 'NOUN', 'ADJ', 'AUX', 'ADV'}
+    __baseIgnore = {"etw", "jdn", "jdm", "etwas", "jemanden", "jemandem"}
 
     def __init__(self, lang):
         lang = lang.lower()
         self.__model = spacy.load(NLP.__langModelMap[lang])
         self.__lang = lang
 
-    def isPhrase(self, text):
+    def getBase(self, text):
         counter, base = 0, None
 
-        processed = self.processWords(text)
-        base = processed[0]
+        # etw, jdn, etc. are often misclassified which affects the separation the words into word-centered text and
+        # phrases
+        processed = {key: value for key, value in self.processText(text).items() if key not in NLP.__baseIgnore}
+        base = list(processed.keys())[0]
         # Since there will not be a lot of words to iterate over, the overhead is not noticeable
-        for elem in processed:
+        for key, elem in processed.items():
             if elem["speechPart"] in NLP.__mainSpeechParts:
                 counter += 1
-                base = elem
+                base = key
 
-        isPhrase = counter >= 2 or (counter == 0 and len(text) >= 2)
-        return isPhrase, base if not isPhrase else None
+        isPhrase = counter >= 2 or (counter == 0 and len(processed) >= 2)
+        return base if not isPhrase else None
 
     @staticmethod
     def __parseTokens(docs):
-        words = list()
-        reprocess = set()
+        words = dict()
 
         for tokens in docs:
-            for token in tokens:
-                """
-                If the capitalization of the lemma and the initial word do not match, it is highly likely
-                that the pos_ tag is not correct. Since there is no direct generalization for tag_ and pos_ to a
-                basic part of speech, this is an attempt to eliminated the implicit problem
-                We change the capitalization and go with the result
-                """
+            for token in tokens if isinstance(tokens, list) else [tokens]:
                 # TODO add X words with changed capitalization to reprocessing
                 # TODO nouns that do not have capital letters in lemma should be reprocessed
-                if (isLower := token.text[0].islower()) != token.lemma_[0].islower():
-                    text = token.text
-                    if isLower and token.pos_.lower() != "noun":
-                        text = text[0].upper() + text[1:]
-                        reprocess.add(text)
-                        continue
-                    elif not isLower:
-                        text = text[0].lower() + text[1:]
-                        reprocess.add(text)
-                        continue
-
-                words.append(dict({
+                words[token.text] = dict({
                     "word": token.text,
                     "lemma": token.lemma_,
                     "speechPart": token.pos_,
-                    **({'article': NLP.__genderToArticle(token.morph.get("Gender"))} if token.pos_.lower() == "noun" else {})
-                }))
+                    **({'article': NLP.__genderToArticle(
+                        token.morph.get("Gender"))} if token.pos_.lower() == "noun" else {})
+                })
 
-        return words, reprocess
+        return words
 
     @staticmethod
     def __genderToArticle(genderList):
@@ -80,20 +66,11 @@ class NLP:
 
     def processWords(self, words, batchSize=100):
         result = list()
-        reprocess = set()
 
         # TODO use Leipzig corpora to generate a sentence for a WORD and then feed the sentence to the algorithm
         for curPos in range(0, len(words), batchSize):
             docs = list(self.__model.pipe(words[curPos: curPos + batchSize]))
-            batchResult, toReprocess = NLP.__parseTokens(docs)
-            reprocess = reprocess.union(set(toReprocess))
-
-            result += batchResult
-
-        # TODO get rid of copying the same rows as in the cycle above
-        if len(reprocess) > 0:
-            docs = list(self.__model.pipe(list(reprocess)))
-            batchResult, toReprocess = NLP.__parseTokens(docs)
+            batchResult = NLP.__parseTokens(docs)
 
             result += batchResult
 
@@ -118,24 +95,32 @@ class NLP:
 
         return texts
 
+    def processSentences(self, sentences):
+        result = dict()
+        processed = list(self.__model.pipe(list(sentences.values())))
+
+        for value in zip(list(sentences.keys()), processed):
+            for token in value[1]:
+                if token.text == value[0]:
+                    result[token.lemma_] = dict({
+                        "word": token.text,
+                        "speechPart": token.pos_,
+                        "lemma": token.lemma_,
+                        **({'article': NLP.__genderToArticle(
+                            token.morph.get("Gender"))} if token.pos_.lower() == "noun" else {})
+                    })
+
+                    break
+
+        return result
+
     def processText(self, text):
         chunks = self.__splitText(text, self.__model.max_length)
         data = dict()
 
         for chunk in chunks:
-            newData, reprocess = NLP.__parseTokens(self.__model(chunk))
-            data |= newData
-            chunks.append(list(reprocess))
-
-        # TODO think of a better way to deduplicate data
-        # TODO generally it makes sense to remove all the entries with the same pair (lemma, partOfSpeech)
-        for key in data:
-            unseen = list()
-            for entry in data[key]:
-                if entry not in unseen:
-                    unseen.append(entry)
-
-            data[key] = unseen
+            newData = NLP.__parseTokens(self.__model(chunk))
+            data.update(newData)
 
         return data
 

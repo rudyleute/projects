@@ -1,9 +1,11 @@
 from Helpers.CSVParser import CSVParser
 from State import State
+from Helpers.Corpus import Corpus
 from lingua import Language, LanguageDetectorBuilder
 import langcodes
 import re
 from collections import defaultdict
+from Helpers.Requests import Requests
 
 
 class Processor:
@@ -13,12 +15,17 @@ class Processor:
 
     @staticmethod
     def __detectLanguage(text):
-        language = Processor.__langDetector.detect_language_of(text)
+        # TODO this should not be hardcoded
+        base = Processor.__langDetector.compute_language_confidence(text, Language.ENGLISH)
+        target = Processor.__langDetector.compute_language_confidence(text, Language.GERMAN)
+        language = Language.ENGLISH if base - target > 0.4 else Language.GERMAN
+
         return langcodes.get(language.iso_code_639_1.name.lower()).display_name().lower()
 
     @staticmethod
-    def processTextFile(filename):
+    def processTextFile(filename, lang=None):
         words = defaultdict(dict)
+        # We do not merge them as some words in English can be exactly the same as the words in German and vice versa
         existingWords = {row[0].lower() for row in State.getEntity("words").getWordsList(dict({
             "where": [
                 ("word_lemma", "is not", None)
@@ -32,37 +39,68 @@ class Processor:
         }))}
 
         with open(filename, 'r', encoding="utf-8-sig") as file:
-            for line in file:
-                line = re.split(r"\(|\)", line.strip())
-                line = [part.strip() for part in line if part.strip()]
-                if len(line) == 0:
-                    continue
+            data = [line.strip() for line in file.readlines() if len(line.strip()) > 0]
 
-                language = Processor.__detectLanguage(line[0])
-                nlp = State.getNlp(language)
+        baseLang, targetLang = State.getBaseLang(), State.getTargetLang()
+        store, forSentences = dict({baseLang: dict(), targetLang: dict()}), dict()
+        for line in data:
+            line = [part.strip() for part in re.split(r"\(|\)", line.strip())]
+            # TODO this can be done in a better way
+            language = lang if lang is not None else Processor.__detectLanguage(line[0])
+            main = State.getNlp(language).getBase(line[0])
 
-                isPhrase, base = nlp.isPhrase(line[0].split())
-                base = base or {}
+            if (language == targetLang and line[0].lower() in existingWords) or \
+                    (language == baseLang and line[0].lower() in emptyTranslations):
+                continue
 
-                base["word"] = line[0]
-                if isPhrase:
-                    base["lemma"] = line[0]
+            # main is the original format of the word, not its lemma
+            if main is not None and ((language == targetLang and main.lower() not in existingWords) or \
+                                     (language == baseLang and main.lower() not in emptyTranslations)):
+                # TODO the language code must not be hardcoded
+                if language == targetLang:
+                    forSentences[main] = dict({
+                        "functor": Corpus.getExampleSentence,
+                        "params": ['deu', main],
+                    })
 
-                if (language == State.getCurrentLang() and base["word"].lower() in existingWords) or \
-                        (language == State.getBaseLang() and base["word"].lower() in emptyTranslations):
-                    continue
+                    store[main] = {
+                        "main": main,
+                        "original": line[0],
+                        "translation": line[1] if len(line) == 2 else None,
+                        "language": language
+                    }
+                else:
+                    words[language].setdefault(Processor.__words, []).append({
+                        "lemma": line[0],
+                        "word": line[0]
+                    })
+                continue
 
-                if len(line) == 2:
-                    base["translation"] = line[1]
+            words[language].setdefault(Processor.__phrases, []).append({
+                "lemma": line[0],
+                "word": line[0]
+            })
 
-                words[language].setdefault(Processor.__phrases if isPhrase else Processor.__words, []).append(base)
+        sentences = Requests.parallelRequests(forSentences)
+        # TODO can probably be optimized for the cases where the sentences for different words are the same
+        sentencesToProcess = dict()
+        for key in sentences:
+            store[key]["sentence"] = sentences[key]["result"][0]
+            sentencesToProcess[key] = store[key]["sentence"]
+
+        processed = {
+            lemma: value for lemma, value in
+            State.getNlp(targetLang).processSentences(sentencesToProcess).items()
+            if lemma not in existingWords
+        }
+        words[targetLang].setdefault(Processor.__words, list(processed.values()))
 
         mapping = {
-            State.getCurrentLang(): {
+            targetLang: {
                 Processor.__words: State.getEntity(Processor.__words).add,
                 Processor.__phrases: State.getEntity(Processor.__phrases).add
             },
-            State.getBaseLang(): {
+            baseLang: {
                 Processor.__words: State.getEntity(Processor.__words).addBaseLangData,
                 Processor.__phrases: State.getEntity(Processor.__phrases).addBaseLangData
             }
@@ -93,7 +131,7 @@ class Processor:
         in order to not use the data at all
         """
         unique = Processor.__removeExistent(data)
-        return State.getNlp(State.getCurrentLang()).processWords(list(unique.keys()))
+        return State.getNlp(State.getTargetLang()).processWords(list(unique.keys()))
 
     @staticmethod
     def processTeacherAi():
@@ -107,7 +145,7 @@ class Processor:
             except KeyError:
                 continue
 
-        State.getEntity("words").add(processed, True)
+        State.getEntity("words").add(processed, isLearnTaken=True)
 
     @staticmethod
     def __getCopyName(filename):
