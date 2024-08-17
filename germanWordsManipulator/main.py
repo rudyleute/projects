@@ -21,14 +21,15 @@ def main():
         "german": NLP("german"),
         "english": NLP("english")
     }), dict({
-        "words": Words(),
-        "speechParts": SpeechParts()
+        "speechParts": SpeechParts(),
     }), "german")
+    State.addEntity("words", Words())
     State.addEntity("phrases", Phrases())
 
     # Processor.exportArticles(["word_lemma", "word_article", "word_translation"])
-    Processor.processTextFile("/home/otto/Desktop/UsefulWords.txt", "english")
-    Processor.processTextFile("/home/otto/Desktop/GermanWordsToLearn.txt")
+    # Processor.processTextFile("/home/otto/Desktop/GermanWordsToLearn.txt")
+    # Processor.processTextFile("/home/otto/Desktop/UsefulWords.txt")
+    Processor.processTeacherAi()
 
 if __name__ == "__main__":
     main()

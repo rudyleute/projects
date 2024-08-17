@@ -18,134 +18,137 @@ class Processor:
         # TODO this should not be hardcoded
         base = Processor.__langDetector.compute_language_confidence(text, Language.ENGLISH)
         target = Processor.__langDetector.compute_language_confidence(text, Language.GERMAN)
-        language = Language.ENGLISH if base - target > 0.4 else Language.GERMAN
+        language = Language.ENGLISH if base - target > 0.3 else Language.GERMAN
 
         return langcodes.get(language.iso_code_639_1.name.lower()).display_name().lower()
 
     @staticmethod
     def processTextFile(filename, lang=None):
         words = defaultdict(dict)
-        # We do not merge them as some words in English can be exactly the same as the words in German and vice versa
-        existingWords = {row[0].lower() for row in State.getEntity("words").getWordsList(dict({
-            "where": [
-                ("word_lemma", "is not", None)
-            ]
-        }))}
-        emptyTranslations = {row[0].lower() for row in State.getEntity("words").getTranslationsList(dict({
-            "where": [
-                ("word_lemma", "is", None),
-                ("word_translation", "is not", None)
-            ]
-        }))}
 
         with open(filename, 'r', encoding="utf-8-sig") as file:
             data = [line.strip() for line in file.readlines() if len(line.strip()) > 0]
 
-        baseLang, targetLang = State.getBaseLang(), State.getTargetLang()
-        store, forSentences = dict({baseLang: dict(), targetLang: dict()}), dict()
+        edited = dict()
         for line in data:
             line = [part.strip() for part in re.split(r"\(|\)", line.strip())]
-            # TODO this can be done in a better way
-            language = lang if lang is not None else Processor.__detectLanguage(line[0])
-            main = State.getNlp(language).getBase(line[0])
 
-            if (language == targetLang and line[0].lower() in existingWords) or \
-                    (language == baseLang and line[0].lower() in emptyTranslations):
-                continue
+            value = dict()
+            value["word"] = line[0]
+            if len(line) >= 2:
+                value["translation"] = line[1]
 
-            # main is the original format of the word, not its lemma
-            if main is not None and ((language == targetLang and main.lower() not in existingWords) or \
-                                     (language == baseLang and main.lower() not in emptyTranslations)):
-                # TODO the language code must not be hardcoded
-                if language == targetLang:
-                    forSentences[main] = dict({
-                        "functor": Corpus.getExampleSentence,
-                        "params": ['deu', main],
-                    })
+            edited[line[0]] = value
 
-                    store[main] = {
-                        "main": main,
-                        "original": line[0],
-                        "translation": line[1] if len(line) == 2 else None,
-                        "language": language
-                    }
-                else:
-                    words[language].setdefault(Processor.__words, []).append({
-                        "lemma": line[0],
-                        "word": line[0]
-                    })
-                continue
+        Processor.__addValues(Processor.__process(edited, removeExistent=False), False)
 
-            words[language].setdefault(Processor.__phrases, []).append({
-                "lemma": line[0],
-                "word": line[0]
-            })
+    @staticmethod
+    def __alterExistent(data, toRemove):
+        targetLang, baseLang = State.getTargetLang(), State.getBaseLang()
+        result = dict()
+        existingWords = State.getEntity("words").getExistingWords()
 
-        sentences = Requests.parallelRequests(forSentences)
-        # TODO can probably be optimized for the cases where the sentences for different words are the same
-        sentencesToProcess = dict()
-        for key in sentences:
-            store[key]["sentence"] = sentences[key]["result"][0]
-            sentencesToProcess[key] = store[key]["sentence"]
-
-        processed = {
-            lemma: value for lemma, value in
-            State.getNlp(targetLang).processSentences(sentencesToProcess).items()
-            if lemma not in existingWords
-        }
-        words[targetLang].setdefault(Processor.__words, list(processed.values()))
-
-        mapping = {
-            targetLang: {
-                Processor.__words: State.getEntity(Processor.__words).add,
-                Processor.__phrases: State.getEntity(Processor.__phrases).add
-            },
-            baseLang: {
-                Processor.__words: State.getEntity(Processor.__words).addBaseLangData,
-                Processor.__phrases: State.getEntity(Processor.__phrases).addBaseLangData
+        if targetLang in data:
+            # TODO check that the key is not present in word_data
+            forSentences = {
+                key: dict({
+                    "functor": Corpus.getExampleSentence,
+                    "params": ['deu', key],
+                })
+                for key in data[targetLang]
             }
-        }
 
-        for lang in words:
-            for key in words[lang]:
-                mapping[lang][key](words[lang][key])
+            sentences = Requests.parallelRequests(forSentences)
+            sentencesToProcess = dict()
+            for key in sentences:
+                sentencesToProcess[key] = sentences[key]["result"][0]
+
+            targetResult = defaultdict(dict)
+            processedWords = State.getNlp(targetLang).processSentences(sentencesToProcess)
+            for key, value in processedWords.items():
+                if key in existingWords["takenLemmas"] or \
+                        (toRemove and key in existingWords["nonTakenLemmas"]):
+                    continue
+
+                word = value["word"]
+                value["original"] = data[targetLang][word]["word"]
+                spType = Processor.__words if data[targetLang][word]["main"] is not None else Processor.__phrases
+
+                if toRemove and word in existingWords["nonTakenLemmas"] \
+                        and existingWords["nonTakenLemmas"][word]["translation"] is not None:
+                    targetResult[spType].setdefault("updateLearn", []).append(
+                        existingWords["nonTakenLemmas"][word]["uuid"])
+                    continue
+
+                if "translation" in data[targetLang][value["word"]]:
+                    if (translation := data[targetLang][value["word"]]["translation"]) in existingWords[
+                        "emptyTranslations"]:
+                        targetResult[spType].setdefault("update", []).append(dict({
+                            "uuid": existingWords["emptyTranslations"][translation],
+                            "lemma": value["lemma"]
+                        }))
+                        continue
+
+                    value["translation"] = data[targetLang][value["word"]]["translation"]
+
+                targetResult[spType].setdefault("add", []).append(value)
+
+            result[targetLang] = targetResult
+
+            if baseLang in data:
+                baseResult = defaultdict(dict)
+                for key, value in data[baseLang].items():
+                    if value["word"] not in existingWords["emptyTranslations"]:
+                        baseResult[Processor.__words if value["main"] is not None else Processor.__phrases]\
+                         .setdefault("add", []).append({"translation": value["word"]})
+
+                result[baseLang] = baseResult
+
+        return result
 
     @staticmethod
-    def __removeExistent(data):
-        dataCopy = data.copy()
-
-        existingWords = {row[0].lower() for row in State.getEntity("words").getWordsList(dict({
-            "where": [
-                ("word_lemma", "is not", None)
-            ]
-        }))}
-        for key in existingWords:
-            dataCopy.pop(key, None)
-
-        return dataCopy
-
-    @staticmethod
-    def __process(data):
+    def __process(data, removeExistent, onlyTarget=False):
         """
         Remove the already existing duplicates (lemma form) in order to avoid overhead of retrieving a lot of info (especially API)
         in order to not use the data at all
         """
-        unique = Processor.__removeExistent(data)
-        return State.getNlp(State.getTargetLang()).processWords(list(unique.keys()))
+        language = dict({
+            State.getBaseLang(): defaultdict(dict),
+            State.getTargetLang(): defaultdict(dict)
+        })
+        for key, value in data.items():
+            lang = Processor.__detectLanguage(key)
+
+            value["language"] = lang
+            value["main"] = State.getNlp(lang).getBase(key)
+            value["word"] = key
+            language[lang][key if value["main"] is None else value["main"]] = value
+
+        if onlyTarget:
+            language.pop(State.getBaseLang(), None)
+
+        # TODO sentences and everything should be factored out to here
+        return Processor.__alterExistent(language, toRemove=removeExistent)
 
     @staticmethod
-    def processTeacherAi():
+    def processTeacherAi(removeExistent=True, determineLanguage=True):
         result = CSVParser.readFile("active_vocabulary.csv", keyField="word", keyLower=True)
 
         # Get all the information about the words (POS, lemma, article, etc)
-        processed = Processor.__process(result)
-        for elem in processed:
-            try:
-                elem["translation"] = result[elem["word"].lower()]["translation"]
-            except KeyError:
-                continue
+        processed = Processor.__process(result, removeExistent=removeExistent, onlyTarget=True)
+        Processor.__addValues(processed, True)
 
-        State.getEntity("words").add(processed, isLearnTaken=True)
+    @staticmethod
+    def __addValues(processed, isLearnTaken):
+        for language in processed:
+            for spType in processed[language]:
+                for funcName in processed[language][spType]:
+                    if funcName == "add":
+                        State.getEntity(spType).add(processed[language][spType][funcName], isLearnTaken=isLearnTaken)
+                    elif funcName == "update":
+                        State.getEntity(spType).update(processed[language][spType][funcName], isLearnTaken=isLearnTaken)
+                    elif funcName == "updateLearn":
+                        State.getEntity(spType).update(processed[language][spType][funcName], isLearnTaken=isLearnTaken)
 
     @staticmethod
     def __getCopyName(filename):
@@ -165,7 +168,7 @@ class Processor:
             copyFile.write(''.join(["word\tarticle\ttranslation\n"] + lines))
 
         data = CSVParser.readFile(copyFilename, delim=delim, keyLower=True, keyField="word")
-        processed = Processor.__process(data)
+        processed = Processor.__process(data, True)
         nounCode = State.getEntity("speechParts").getCode("noun")
 
         for wordData in processed:
@@ -184,8 +187,8 @@ class Processor:
 
         State.getEntity("words").add(processed, isArticleTaken=True)
 
-    @staticmethod
-    def exportArticles(order, filename="articles"):
-        articles = State.getEntity("words").getArticles(order)
-
-        CSVParser.editFile(f"{filename}.csv", articles, hasHeader=True)
+    # @staticmethod
+    # def exportArticles(order, filename="articles"):
+    #     articles = State.getEntity("words").getArticles(order)
+    #
+    #     CSVParser.editFile(f"{filename}.csv", articles, hasHeader=True)

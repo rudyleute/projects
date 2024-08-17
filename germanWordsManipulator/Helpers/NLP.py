@@ -28,6 +28,9 @@ class NLP:
         # etw, jdn, etc. are often misclassified which affects the separation the words into word-centered text and
         # phrases
         processed = {key: value for key, value in self.processText(text).items() if key not in NLP.__baseIgnore}
+        if len(processed) == 0:
+            return text
+
         base = list(processed.keys())[0]
         # Since there will not be a lot of words to iterate over, the overhead is not noticeable
         for key, elem in processed.items():
@@ -43,16 +46,16 @@ class NLP:
         words = dict()
 
         for tokens in docs:
-            for token in tokens if isinstance(tokens, list) else [tokens]:
-                # TODO add X words with changed capitalization to reprocessing
-                # TODO nouns that do not have capital letters in lemma should be reprocessed
-                words[token.text] = dict({
-                    "word": token.text,
-                    "lemma": token.lemma_,
-                    "speechPart": token.pos_,
-                    **({'article': NLP.__genderToArticle(
-                        token.morph.get("Gender"))} if token.pos_.lower() == "noun" else {})
-                })
+            for token in tokens if not isinstance(tokens, spacy.tokens.Token) else [tokens]:
+                # TODO there should be a better way to remove misclassified languages
+                if token.pos_ != "X":
+                    words[token.text] = dict({
+                        "word": token.text,
+                        "lemma": token.lemma_,
+                        "speechPart": token.pos_,
+                        **({'article': NLP.__genderToArticle(
+                            token.morph.get("Gender"))} if token.pos_.lower() == "noun" else {})
+                    })
 
         return words
 
@@ -65,14 +68,13 @@ class NLP:
         return '/'.join(gender)
 
     def processWords(self, words, batchSize=100):
-        result = list()
+        result = dict()
 
         # TODO use Leipzig corpora to generate a sentence for a WORD and then feed the sentence to the algorithm
         for curPos in range(0, len(words), batchSize):
             docs = list(self.__model.pipe(words[curPos: curPos + batchSize]))
             batchResult = NLP.__parseTokens(docs)
-
-            result += batchResult
+            result.update(batchResult)
 
         return result
 
@@ -102,7 +104,10 @@ class NLP:
         for value in zip(list(sentences.keys()), processed):
             for token in value[1]:
                 if token.text == value[0]:
-                    result[token.lemma_] = dict({
+                    if token.pos_ == "X":
+                        continue
+
+                    result[token.text] = dict({
                         "word": token.text,
                         "speechPart": token.pos_,
                         "lemma": token.lemma_,
