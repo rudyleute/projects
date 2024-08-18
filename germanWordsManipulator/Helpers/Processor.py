@@ -2,10 +2,11 @@ from Helpers.CSVParser import CSVParser
 from State import State
 from Helpers.Corpus import Corpus
 from lingua import Language, LanguageDetectorBuilder
-import langcodes
-import re
 from collections import defaultdict
 from Helpers.Requests import Requests
+from Helpers.PDFParser import PDFParser
+import langcodes
+import re
 
 
 class Processor:
@@ -107,7 +108,7 @@ class Processor:
         return result
 
     @staticmethod
-    def __process(data, removeExistent, onlyTarget=False):
+    def __process(data, removeExistent, onlyTarget=False, defaultLang=None):
         """
         Remove the already existing duplicates (lemma form) in order to avoid overhead of retrieving a lot of info (especially API)
         in order to not use the data at all
@@ -117,7 +118,7 @@ class Processor:
             State.getTargetLang(): defaultdict(dict)
         })
         for key, value in data.items():
-            lang = Processor.__detectLanguage(key)
+            lang = defaultLang or Processor.__detectLanguage(key)
 
             value["language"] = lang
             value["main"] = State.getNlp(lang).getBase(key)
@@ -187,6 +188,14 @@ class Processor:
 
         State.getEntity("words").add(processed, isArticleTaken=True)
 
+    @staticmethod
+    def processGoethe(filename):
+        result = PDFParser.parseGoethe(filename)
+        prepared = {value: dict({"word": value}) for value in list(result.keys())}
+        processed = Processor.__process(prepared, removeExistent=False, defaultLang="german")
+        Processor.__addValues(processed, False)
+
+        pass
     # @staticmethod
     # def exportArticles(order, filename="articles"):
     #     articles = State.getEntity("words").getArticles(order)
