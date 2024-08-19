@@ -2,6 +2,7 @@ from DB import DB
 from Entities.Words import Words
 from Entities.SpeechParts import SpeechParts
 from Entities.Phrases import Phrases
+from Entities.Frequency import Frequency
 from Helpers.NLP import NLP
 from Helpers.Processor import Processor
 from Helpers.PDFParser import PDFParser
@@ -23,15 +24,16 @@ def main():
         "english": NLP("english")
     }), dict({
         "speechParts": SpeechParts(),
+        "frequency": Frequency()
     }), "german")
     State.addEntity("words", Words())
     State.addEntity("phrases", Phrases())
 
     # Processor.exportArticles(["word_lemma", "word_article", "word_translation"])
+    Processor.processGoethe("Goethe-Zertifikat_B1_Wortliste.pdf", freqUUID="ff59eb98-e477-4c07-9181-9d98d9526e7f")
     # Processor.processTextFile("/home/otto/Desktop/GermanWordsToLearn.txt")
     # Processor.processTextFile("/home/otto/Desktop/UsefulWords.txt")
     # Processor.processTeacherAi()
 
-    Processor.processGoethe("Goethe-Zertifikat_A2_Wortliste.pdf")
 if __name__ == "__main__":
     main()

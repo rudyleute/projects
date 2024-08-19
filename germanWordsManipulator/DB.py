@@ -102,14 +102,14 @@ class DB:
             whereClause = DB.__formWhereClause(queryParams['where'])
             if len(whereClause) == 0:
                 whereClause = None
-        if "sort" in queryParams:
-            sort = str.join(',', queryParams["sort"])
+        if "order by" in queryParams:
+            sort = str.join(',', queryParams["order by"])
         if "limit" in queryParams and isinstance(queryParams["limit"], int):
             limit = queryParams["limit"]
 
         query = (f"SELECT {select} FROM {queryParams['from']} "
                  f"WHERE {whereClause or '1=1'} "
-                 f"{f'SORT BY {sort}' if sort is not None else str()} "
+                 f"{f'ORDER BY {sort}' if sort is not None else str()} "
                  f"{f'LIMIT {limit}' if limit is not None else str()}")
 
         return self.__execute(query, isDict=isDict)

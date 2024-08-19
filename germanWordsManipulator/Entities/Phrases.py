@@ -13,12 +13,6 @@ class Phrases(Words):
 
         super().add(wordsData, frequency=False, isLearnTaken=isLearnTaken, isArticleTaken=isArticleTaken)
 
-    def addBaseLangData(self, wordsData, isTaken=False):
-        for word in wordsData:
-            word["speechPart"] = self.__phrasesCode
-
-        super().addBaseLangData(wordsData, isTaken)
-
     def update(self, wordsData):
         for i in range(0, len(wordsData), self._step):
             data, frequencies = {}, {}

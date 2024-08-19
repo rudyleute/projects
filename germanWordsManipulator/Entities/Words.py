@@ -1,3 +1,4 @@
+import bisect
 from .Tables import Tables
 from Helpers.Requests import Requests
 from Helpers.Corpus import Corpus
@@ -9,6 +10,8 @@ class Words(Tables):
     def __init__(self):
         super().__init__("word")
         self.__speechParts = State.getEntity("speechParts").get()
+        self.__frequencies = State.getEntity("frequency").get(key="frequency_lowest_class")
+        self.__nameUUID = {value["label"]: value["uuid"] for value in list(self.__frequencies.values())}
 
     def __getList(self, keys, params=None):
         if params is None:
@@ -70,31 +73,39 @@ class Words(Tables):
 
                 # TODO separate functions for base language and targetLanguage to avoid unnecessary checks
                 isLemma = "lemma" in word
-                data[word["lemma"] if isLemma else word["translation"]] = dict({
+                data[(key := word["lemma"] if isLemma else word["translation"])] = dict({
                     **({"word_data": word["original"]} if isLemma else {}),
                     **({"word_lemma": word["lemma"]} if isLemma else {}),
                     **({"word_translation": word["translation"]} if "translation" in word else {}),
                     **({"word_fk_speech_part_id": self.__speechParts[word["speechPart"]][
                         "uuid"]} if "speechPart" in word else {}),
+                    "word_fk_frequency_id": word["frequency"],
                     "word_is_learn_taken": isLearnTaken,
                     "word_is_article_taken": isArticleTaken,
                     **({"word_article": word["article"]} if "speechPart" in word and word["speechPart"].lower() == "noun" else {})
                 })
 
-                if frequency and isLemma:
+                if data[key]["word_fk_frequency_id"] is None and frequency and isLemma:
                     frequencies[word["lemma"]] = dict({
-                        "functor": Corpus.getWordFrequency,
+                        "functor": Corpus.getWordFrequencyClass,
                         "params": ['deu', word["lemma"]],
                     })
 
             for key, value in Requests.parallelRequests(frequencies).items():
-                if value["result"] == 0:
+                if value["result"] is None:
                     data.pop(key, None)
                     continue
 
-                data[key]["word_frequency"] = value["result"]
+                data[key]["word_fk_frequency_id"] = self.__findFrequencyUUID(value["result"])
 
             super().add(list(data.values()))
+
+    def __getFrequencyUUID(self, name):
+        return self.__nameUUID[name] if name in self.__nameUUID else None
+
+    def __findFrequencyUUID(self, freqClass):
+        ind = bisect.bisect_right((segments := list(self.__frequencies.keys())), freqClass) - 1
+        return self.__frequencies[segments[ind]]["uuid"]
 
     def update(self, wordsData, isLearnTaken=False):
         for i in range(0, len(wordsData), self._step):

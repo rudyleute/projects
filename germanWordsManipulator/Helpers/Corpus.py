@@ -61,18 +61,17 @@ class Corpus:
         return Corpus.__langCorpora[code]
 
     @staticmethod
-    def getWordFrequency(code, word):
+    def getWordFrequencyClass(code, word):
         corporaData = Corpus.getLanguageCorpora(code)
         corporaNames = list(corporaData.keys())
 
-        freq = 0
         for name in corporaNames:
             url = f"{Corpus.__apiAddress}/words/{name}/word/{word}"
             try:
-                freq += (Corpus.__request(url))["freq"]
+                return (Corpus.__request(url))["frequencyClass"]
             except ResourceNotFoundError:
                 pass
-        return freq
+        return None
 
     @staticmethod
     def getExampleSentence(code, word):

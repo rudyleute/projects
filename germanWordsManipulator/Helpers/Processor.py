@@ -57,6 +57,7 @@ class Processor:
                     "params": ['deu', key],
                 })
                 for key in data[targetLang]
+                if key not in existingWords["takenLemmas"] and key not in existingWords["nonTakenLemmas"]
             }
 
             sentences = Requests.parallelRequests(forSentences)
@@ -92,6 +93,7 @@ class Processor:
 
                     value["translation"] = data[targetLang][value["word"]]["translation"]
 
+                value["frequency"] = data[targetLang][value["word"]]["frequency"]
                 targetResult[spType].setdefault("add", []).append(value)
 
             result[targetLang] = targetResult
@@ -100,15 +102,19 @@ class Processor:
                 baseResult = defaultdict(dict)
                 for key, value in data[baseLang].items():
                     if value["word"] not in existingWords["emptyTranslations"]:
-                        baseResult[Processor.__words if value["main"] is not None else Processor.__phrases]\
-                         .setdefault("add", []).append({"translation": value["word"]})
+                        baseResult[Processor.__words if value["main"] is not None else Processor.__phrases] \
+                            .setdefault("add", []).append(
+                            {
+                                "translation": value["word"],
+                                "frequency": data[baseLang][value["main"] or value["word"]]["frequency"]
+                            })
 
                 result[baseLang] = baseResult
 
         return result
 
     @staticmethod
-    def __process(data, removeExistent, onlyTarget=False, defaultLang=None):
+    def __process(data, removeExistent, freqUUID=None, onlyTarget=False, defaultLang=None):
         """
         Remove the already existing duplicates (lemma form) in order to avoid overhead of retrieving a lot of info (especially API)
         in order to not use the data at all
@@ -121,6 +127,7 @@ class Processor:
             lang = defaultLang or Processor.__detectLanguage(key)
 
             value["language"] = lang
+            value["frequency"] = freqUUID
             value["main"] = State.getNlp(lang).getBase(key)
             value["word"] = key
             language[lang][key if value["main"] is None else value["main"]] = value
@@ -189,13 +196,13 @@ class Processor:
         State.getEntity("words").add(processed, isArticleTaken=True)
 
     @staticmethod
-    def processGoethe(filename):
+    def processGoethe(filename, freqUUID):
         result = PDFParser.parseGoethe(filename)
-        prepared = {value: dict({"word": value}) for value in list(result.keys())}
-        processed = Processor.__process(prepared, removeExistent=False, defaultLang="german")
-        Processor.__addValues(processed, False)
+        if result is not None:
+            prepared = {value: dict({"word": value}) for value in list(result.keys())}
+            processed = Processor.__process(prepared, removeExistent=False, defaultLang="german", freqUUID=freqUUID)
+            Processor.__addValues(processed, False)
 
-        pass
     # @staticmethod
     # def exportArticles(order, filename="articles"):
     #     articles = State.getEntity("words").getArticles(order)
