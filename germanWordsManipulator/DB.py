@@ -91,9 +91,7 @@ class DB:
         return str.join(' AND ', whereClause)
 
     def select(self, queryParams, isDict=True):
-        whereClause = None
-        sort = None
-        limit = None
+        whereClause = sort = limit = groupBy = join = None
         select = "*"
 
         if "select" in queryParams and len(queryParams["select"]):
@@ -106,9 +104,20 @@ class DB:
             sort = str.join(',', queryParams["order by"])
         if "limit" in queryParams and isinstance(queryParams["limit"], int):
             limit = queryParams["limit"]
+        if "group by" in queryParams:
+            groupBy = ', '.join(queryParams["group by"])
+        if "join" in queryParams:
+            condition = ' and '.join([
+                f"{value[0]} {value[1]} {value[2]}"
+                for value in queryParams['join'][2]
+            ])
+            join = (f"{queryParams['join'][0]} {queryParams['join'][1]} ON "
+                    f"{condition}")
 
         query = (f"SELECT {select} FROM {queryParams['from']} "
-                 f"WHERE {whereClause or '1=1'} "
+                 f"{join or str()} "
+                 f"{f'WHERE {whereClause}' if whereClause is not None else str()} "
+                 f"{f'GROUP BY {groupBy}' if groupBy is not None else str()} "
                  f"{f'ORDER BY {sort}' if sort is not None else str()} "
                  f"{f'LIMIT {limit}' if limit is not None else str()}")
 

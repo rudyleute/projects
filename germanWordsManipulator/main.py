@@ -30,10 +30,11 @@ def main():
     State.addEntity("phrases", Phrases())
 
     # Processor.exportArticles(["word_lemma", "word_article", "word_translation"])
-    Processor.processGoethe("Goethe-Zertifikat_B1_Wortliste.pdf", freqUUID="ff59eb98-e477-4c07-9181-9d98d9526e7f")
+    # Processor.processGoethe("Goethe-Zertifikat_B1_Wortliste.pdf", freqUUID="ff59eb98-e477-4c07-9181-9d98d9526e7f")
     # Processor.processTextFile("/home/otto/Desktop/GermanWordsToLearn.txt")
     # Processor.processTextFile("/home/otto/Desktop/UsefulWords.txt")
     # Processor.processTeacherAi()
+    # Learner.learnWords(30)
 
 if __name__ == "__main__":
     main()

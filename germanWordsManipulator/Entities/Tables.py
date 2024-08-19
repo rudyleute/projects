@@ -16,7 +16,7 @@ class Tables(ABC):
         })
 
         if params is not None:
-            for key in ["limit", "where", "order by", "select"]:
+            for key in ["limit", "where", "order by", "select", "group by", "join"]:
                 if key in params:
                     data[key] = params[key]
 

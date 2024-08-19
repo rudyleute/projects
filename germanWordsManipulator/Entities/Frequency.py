@@ -24,3 +24,24 @@ class Frequency(Tables):
             })
 
         return data
+
+    def countCategories(self, params=None):
+        result = dict({
+            "select": ["frequency_id", "frequency_label", "COALESCE(COUNT(word.word_fk_frequency_id), 0) as number_in_category"],
+            "join": ["left join", "word", [
+                ("word.word_fk_frequency_id", '=', 'frequency.frequency_id')
+            ]],
+            "group by": ["frequency_id, frequency_label"],
+            "order by": ["frequency_lowest_class ASC"]
+        })
+
+        for key in params or dict():
+            if key in result:
+                if key == "join":
+                    result[key][2].extend(params[key])
+                else:
+                    result[key].extend(params[key])
+            else:
+                result[key] = params[key]
+
+        return super().get(params=result, isDict=True)

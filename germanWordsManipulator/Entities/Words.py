@@ -1,9 +1,11 @@
 import bisect
+import random
+from collections import defaultdict
 from .Tables import Tables
 from Helpers.Requests import Requests
 from Helpers.Corpus import Corpus
 from State import State
-from collections import defaultdict
+import math
 
 
 class Words(Tables):
@@ -82,7 +84,8 @@ class Words(Tables):
                     "word_fk_frequency_id": word["frequency"],
                     "word_is_learn_taken": isLearnTaken,
                     "word_is_article_taken": isArticleTaken,
-                    **({"word_article": word["article"]} if "speechPart" in word and word["speechPart"].lower() == "noun" else {})
+                    **({"word_article": word["article"]} if "speechPart" in word and word[
+                        "speechPart"].lower() == "noun" else {})
                 })
 
                 if data[key]["word_fk_frequency_id"] is None and frequency and isLemma:
@@ -127,21 +130,48 @@ class Words(Tables):
 
             super().update(data)
 
-    def getWordsToLearn(self, quantity=20):
-        params = dict({
-            "limit": quantity,
-            "where": [
-                ("word_is_learn_taken", "=", False),
-                ("word_fk_speech_part_id", "!=", State.getEntity("speechParts").getPhrasesUuid()),
-                ("word_lemma", "is not", None),
-
-            ],
-            "sort": [
-                "word_frequency DESC"
+    def getWordsToLearn(self, quantity):
+        count = State.getEntity("frequency").countCategories(dict({
+            "join": [
+                ("word_is_learn_taken", "=", False)
             ]
-        })
+        }))
+        # can be hardcoded as the frequencies are static (no new categories are allowed to be added)
+        proportions = [35, 30, 20, 15, 7, 3]
+        quantities = [value["number_in_category"] for value in count]
+        chosen = defaultdict(int)
+        for _ in range(quantity):
+            zeroes = [index for index in range(len(quantities)) if quantities[index] == 0]
+            if len(zeroes) == len(quantities):
+                break
 
-        return super().get(params=params, isDict=True)
+            redistribute = 0
+            for i, index in enumerate(zeroes):
+                redistribute += proportions[index]
+                count.pop(index - i), quantities.pop(index - i), proportions.pop(index - i)
+
+            if redistribute > 0:
+                total = sum(proportions)
+                increase = [(redistribute * proportions[i] / total) for i in range(len(proportions))]
+                proportions = [proportions[i] + increase[i] for i in range(len(proportions))]
+
+            sectors = [sum(proportions[:i + 1]) for i in range(len(proportions))]
+            ind = bisect.bisect_left(sectors, random.random() * sum(proportions))
+            chosen[count[ind]["frequency_id"]] += 1
+            quantities[ind] -= 1
+
+        result = []
+        for uuid in chosen:
+            result.extend(self.get({
+                "where": [
+                    ('word_fk_frequency_id', "=", uuid),
+                    ("word_is_learn_taken", "=", False)
+                ],
+                "limit": chosen[uuid],
+                "order by": ["random()"]
+            }))
+
+        return result
 
     def getPhrasesToLearn(self, quantity=20):
         params = dict({
@@ -150,7 +180,7 @@ class Words(Tables):
                 ("word_is_learn_taken", "=", "False"),
                 ("word_fk_speech_part_id", "=", State.getEntity("speechParts").getPhrasesUuid())
             ],
-            "sort": [
+            "order by": [
                 "'word_frequency' DESC"
             ]
         })
