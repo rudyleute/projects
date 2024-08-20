@@ -95,11 +95,8 @@ class Words(Tables):
                     })
 
             for key, value in Requests.parallelRequests(frequencies).items():
-                if value["result"] is None:
-                    data.pop(key, None)
-                    continue
-
-                data[key]["word_fk_frequency_id"] = self.__findFrequencyUUID(value["result"])
+                if value["result"] is not None:
+                    data[key]["word_fk_frequency_id"] = self.__findFrequencyUUID(value["result"])
 
             super().add(list(data.values()))
 

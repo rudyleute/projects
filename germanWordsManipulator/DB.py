@@ -28,7 +28,7 @@ class DB:
 
     @staticmethod
     def __convertForDB(data):
-        return {DB.__convertValue(key): DB.__convertValue(value) for key, value in data.items()}
+        return {DB.__convertValue(key, wrapStr=False): DB.__convertValue(value) for key, value in data.items()}
 
     @staticmethod
     def __convertValue(value, wrapStr=True):
@@ -134,8 +134,8 @@ class DB:
         for row in data["update"]:
             row["values"] = DB.__convertForDB(row["values"])
             self.__execute(
-                f"UPDATE {data['from']} COLUMNS {[f'{key}={value}' for key, value in row['values'].items()]} "
-                f"WHERE {self.__formWhereClause(row['condition']) if 'condition' in data else '1=1'}"
+                f"UPDATE {data['from']} SET {', '.join([f'{key}={value}' for key, value in row['values'].items()])} "
+                f"WHERE {self.__formWhereClause(row['condition']) if 'condition' in row else '1=1'}"
             )
 
     def __del__(self):

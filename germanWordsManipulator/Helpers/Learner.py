@@ -3,8 +3,15 @@ from State import State
 
 class Learner:
     @staticmethod
-    def learnWords(quantity=30):
+    def learnWords(quantity=25):
         words = State.getEntity("words").getWordsToLearn(quantity)
-        phrases = State.getEntity("phrases").getPhrasesToLearn(max(1, int(quantity / 3)))
+        uuids = list()
+        for word in words:
+            uuids.append(dict({"uuid": word["word_id"]}))
+            print(f"{word['word_data']}\t{word['word_lemma']}")
 
-        print(2)
+        State.getEntity("words").update(uuids, isLearnTaken=True)
+
+
+
+
