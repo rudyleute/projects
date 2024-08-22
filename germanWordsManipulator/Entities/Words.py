@@ -134,28 +134,24 @@ class Words(Tables):
             ]
         }))
         # can be hardcoded as the frequencies are static (no new categories are allowed to be added)
-        proportions = [35, 30, 20, 15, 7, 3]
-        quantities = [value["number_in_category"] for value in count]
+        proportions, quantities = [35, 30, 20, 15, 7, 3], [value["number_in_category"] for value in count]
+        zeroes = [ind for ind, value in enumerate(quantities) if value == 0]
+
+        proportions = Words.__redistribute(zeroes, proportions, quantities, count)
+
         chosen = defaultdict(int)
         for _ in range(quantity):
-            zeroes = [index for index in range(len(quantities)) if quantities[index] == 0]
-            if len(zeroes) == len(quantities):
-                break
-
-            redistribute = 0
-            for i, index in enumerate(zeroes):
-                redistribute += proportions[index]
-                count.pop(index - i), quantities.pop(index - i), proportions.pop(index - i)
-
-            if redistribute > 0:
-                total = sum(proportions)
-                increase = [(redistribute * proportions[i] / total) for i in range(len(proportions))]
-                proportions = [proportions[i] + increase[i] for i in range(len(proportions))]
-
             sectors = [sum(proportions[:i + 1]) for i in range(len(proportions))]
             ind = bisect.bisect_left(sectors, random.random() * sum(proportions))
             chosen[count[ind]["frequency_id"]] += 1
             quantities[ind] -= 1
+
+            if quantities[ind] == 0:
+                if len(quantities) == 0:
+                    break
+
+                proportions = Words.__redistribute([ind], proportions, quantities, count)
+
 
         result = []
         for uuid in chosen:
@@ -169,6 +165,22 @@ class Words(Tables):
             }))
 
         return result
+
+    @staticmethod
+    def __redistribute(zeroes, proportions, quantities, count):
+        redistribute = 0
+        propCopy = proportions.copy()
+
+        for i, index in enumerate(zeroes):
+            redistribute += propCopy[index]
+
+        total = sum(propCopy)
+        increase = [(redistribute * propCopy[i] / total) for i in range(len(propCopy))]
+        propCopy = [propCopy[i] + increase[i] for i in range(len(propCopy))]
+        for i in zeroes:
+            propCopy.pop(i), quantities.pop(i), count.pop(i)
+
+        return propCopy
 
     def getPhrasesToLearn(self, quantity=20):
         params = dict({

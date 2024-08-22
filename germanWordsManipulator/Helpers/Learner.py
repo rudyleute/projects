@@ -10,7 +10,7 @@ class Learner:
             uuids.append(dict({"uuid": word["word_id"]}))
             print(f"{word['word_data']}\t{word['word_lemma']}")
 
-        State.getEntity("words").update(uuids, isLearnTaken=True)
+        # State.getEntity("words").update(uuids, isLearnTaken=True)
 
 
 
