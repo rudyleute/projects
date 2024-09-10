@@ -1,6 +1,8 @@
 from dataclasses import fields
 
 from rest_framework import serializers
+
+from .models.activity_level import ActivityLevel
 from .models.brand import Brand
 from .models.category import Category
 from .models.category_brand import CategoryBrand
@@ -32,12 +34,17 @@ class CategorySerializer(serializers.ModelSerializer):
         model = Category
         fields = '__all__'
 
+class ActivityLevelSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ActivityLevel
+        fields = "__all__"
+
 class UnitSerializer(serializers.ModelSerializer):
-    ancestors = RecursiveField('parent')
+    parent = RecursiveField('parent')
 
     class Meta:
         model = Unit
-        fields = ['id', 'name', 'short_name', 'proportion_of_parent', 'ancestors']
+        fields = "__all__"
 
 class RecipySerializer(serializers.ModelSerializer):
     class Meta:
@@ -45,6 +52,7 @@ class RecipySerializer(serializers.ModelSerializer):
         fields = '__all__'
 
 class IntakeSerializer(serializers.ModelSerializer):
+    activity_level = ActivityLevelSerializer('activity_level')
     class Meta:
         model = Intake
         fields = '__all__'

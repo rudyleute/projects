@@ -13,6 +13,7 @@ from .views.category_brand_view import CategoryBrandView
 from .views.category_view import CategoryView
 from .views.consumption_view import ConsumptionView
 from .views.ingredient_view import IngredientView
+from .views.activity_level_view import ActivityLevelView
 
 urlpatterns = [
     path('brand/', BrandView.as_view()),
@@ -41,4 +42,6 @@ urlpatterns = [
     path('ingredient/<uuid:pk>/', IngredientView.as_view()),
     path('category_brand/', CategoryBrandView.as_view()),
     path('category_brand/<uuid:pk>/', CategoryBrandView.as_view()),
+    path('activity_level/', ActivityLevelView.as_view()),
+    path('activity_level/<uuid:pk>/', ActivityLevelView.as_view()),
 ]

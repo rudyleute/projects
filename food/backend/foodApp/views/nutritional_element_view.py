@@ -15,7 +15,7 @@ class NutritionalElementView(APIView):
             serializer = NutritionalElementSerializer(brand)
             return Response(serializer.data)
         except NutritionalElement.DoesNotExist:
-            return Response({"error": "CategoryBrand not found."}, status=status.HTTP_404_NOT_FOUND)
+            return Response({"error": "NutritionalElement is not found."}, status=status.HTTP_404_NOT_FOUND)
 
     def __get_all(self, request):
         sort_by = request.query_params.get('sort', 'name')

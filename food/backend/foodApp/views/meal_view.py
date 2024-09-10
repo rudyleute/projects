@@ -15,10 +15,10 @@ class MealView(APIView):
             serializer = MealSerializer(brand)
             return Response(serializer.data)
         except Meal.DoesNotExist:
-            return Response({"error": "CategoryBrand not found."}, status=status.HTTP_404_NOT_FOUND)
+            return Response({"error": "Meal is not found."}, status=status.HTTP_404_NOT_FOUND)
 
     def __get_all(self, request):
-        sort_by = request.query_params.get('sort', 'name')
+        sort_by = request.query_params.get('sort', 'time')
         queryset = Meal.objects.all().order_by(sort_by)
         serializer = MealSerializer(queryset, many=True)
 

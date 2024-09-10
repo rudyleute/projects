@@ -15,11 +15,10 @@ class ConsumptionView(APIView):
             serializer = ConsumptionSerializer(brand)
             return Response(serializer.data)
         except Consumption.DoesNotExist:
-            return Response({"error": "CategoryBrand not found."}, status=status.HTTP_404_NOT_FOUND)
+            return Response({"error": "Consumption is not found."}, status=status.HTTP_404_NOT_FOUND)
 
     def __get_all(self, request):
-        sort_by = request.query_params.get('sort', 'name')
-        queryset = Consumption.objects.all().order_by(sort_by)
+        queryset = Consumption.objects.all()
         serializer = ConsumptionSerializer(queryset, many=True)
 
         return Response(serializer.data)

@@ -15,11 +15,10 @@ class NutritionView(APIView):
             serializer = NutritionSerializer(brand)
             return Response(serializer.data)
         except Nutrition.DoesNotExist:
-            return Response({"error": "CategoryBrand not found."}, status=status.HTTP_404_NOT_FOUND)
+            return Response({"error": "Nutrition is not found."}, status=status.HTTP_404_NOT_FOUND)
 
     def __get_all(self, request):
-        sort_by = request.query_params.get('sort', 'name')
-        queryset = Nutrition.objects.all().order_by(sort_by)
+        queryset = Nutrition.objects.all()
         serializer = NutritionSerializer(queryset, many=True)
 
         return Response(serializer.data)

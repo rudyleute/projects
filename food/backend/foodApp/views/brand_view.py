@@ -15,7 +15,7 @@ class BrandView(APIView):
             serializer = BrandSerializer(brand)
             return Response(serializer.data)
         except Brand.DoesNotExist:
-            return Response({"error": "Brand not found."}, status=status.HTTP_404_NOT_FOUND)
+            return Response({"error": "Brand is not found."}, status=status.HTTP_404_NOT_FOUND)
 
     def __get_all(self, request):
         sort_by = request.query_params.get('sort', 'name')

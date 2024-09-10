@@ -15,11 +15,10 @@ class RecipyCategoryView(APIView):
             serializer = RecipyCategorySerializer(brand)
             return Response(serializer.data)
         except RecipyCategory.DoesNotExist:
-            return Response({"error": "CategoryBrand not found."}, status=status.HTTP_404_NOT_FOUND)
+            return Response({"error": "RecipyCategory is not found."}, status=status.HTTP_404_NOT_FOUND)
 
     def __get_all(self, request):
-        sort_by = request.query_params.get('sort', 'name')
-        queryset = RecipyCategory.objects.all().order_by(sort_by)
+        queryset = RecipyCategory.objects.all()
         serializer = RecipyCategorySerializer(queryset, many=True)
 
         return Response(serializer.data)

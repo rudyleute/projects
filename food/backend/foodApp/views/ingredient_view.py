@@ -15,7 +15,7 @@ class IngredientView(APIView):
             serializer = IngredientSerializer(brand)
             return Response(serializer.data)
         except Ingredient.DoesNotExist:
-            return Response({"error": "CategoryBrand not found."}, status=status.HTTP_404_NOT_FOUND)
+            return Response({"error": "Ingredient is not found."}, status=status.HTTP_404_NOT_FOUND)
 
     def __get_all(self, request):
         sort_by = request.query_params.get('sort', 'name')
