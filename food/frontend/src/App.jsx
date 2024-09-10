@@ -1,22 +1,19 @@
-import {useEffect, useState} from "react";
-import Select from "./components/basic/Select.jsx";
-import axiosRequest from './services/axios.jsx';
+import {BrowserRouter, Routes, Route} from "react-router-dom";
+import Consumption from "./pages/Consumption.jsx";
+import Layout from "./pages/Layout.jsx";
+import NoPage from "./pages/NoPage.jsx";
 
 function App() {
-				const [list, setList] = useState([]);
-				useEffect(() => {
-								const retrieveElements = async () => {
-												const {data, error} = await axiosRequest('get', 'brand');
-												if (!error) setList(data);
-								}
-
-								retrieveElements().catch((error) => {alert(error)});
-				}, [])
-
 				return (
-								<>
-												<Select data={list} handleSelectChange={(aux) => console.log(aux)}/>
-								</>
+								<BrowserRouter>
+												<Routes>
+																<Route path="/">
+																				<Route index element={<Layout />} />
+																				<Route path="consumption" element={<Consumption />} />
+																				<Route path="*" element={<NoPage />} />
+																</Route>
+												</Routes>
+								</BrowserRouter>
 				)
 }
 

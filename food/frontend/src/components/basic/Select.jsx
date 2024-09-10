@@ -1,29 +1,23 @@
-import {useState, useEffect} from "react";
-
-const Select = ({data, placeholder, handleSelectChange}) => {
-				const [options, setOptions] = useState([])
-				const [selectedOption, setSelectedOption] = useState({})
-
-				useEffect(() => {
-								setOptions(data.map((item) => {
-												return <option key={item.id} value={item.name}>{item.name}</option>
-								}))
-				}, [data])
+const Select = ({data, placeholder, value, onChange}) => {
+				const options = data.map((item) => {
+								return <option key={item.id} title={item?.title ?? ''} value={item.value}>{item.value}</option>
+				})
 
 				const handleChange = (event) => {
 								const selectedValue = event.target.value;
-								const newOption = options.find(option => option.props.value === selectedValue);
+								const newOption = data.find(option => option.value === selectedValue);
 								if (newOption) {
-												setSelectedOption(newOption)
-												handleSelectChange(newOption)
+												onChange({id: newOption.id, value: newOption.value})
 								}
 				};
 
 				return (
-								<select value={selectedOption.props?.value ?? ""} onChange={handleChange}>
-												<option value={""}>{placeholder ?? "Choose the option"}</option>
-												{options}
-								</select>
+								<div className={"select-wrapper"}>
+												<select value={value?.value ?? ""} onChange={handleChange}>
+																<option value={""}>{placeholder ?? "Choose the option"}</option>
+																{options}
+												</select>
+								</div>
 				)
 }
 
